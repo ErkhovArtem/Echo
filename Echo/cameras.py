@@ -1,6 +1,6 @@
 import pyrealsense2 as rs
 import numpy as np
-import time
+import cv2
 
 
 class RealSenseCamera:
@@ -12,7 +12,7 @@ class RealSenseCamera:
     The capture frequency determines the minimum time interval between successive captures.
     """
 
-    def __init__(self, capture_frequency=30, width=1280, height=720):
+    def __init__(self, capture_frequency=30, width=640, height=480):
         """
         Initialize the RealSenseCamera.
 
@@ -32,6 +32,7 @@ class RealSenseCamera:
         self.config.enable_stream(
             rs.stream.color, width, height, rs.format.bgr8, capture_frequency
         )
+        self.config.enable_stream(rs.stream.depth, width, height, rs.format.z16, capture_frequency)
 
         # Start the RealSense pipeline using the configuration.
         self.pipeline.start(self.config)
@@ -39,12 +40,13 @@ class RealSenseCamera:
         # # Initialize the time of the last captured frame to zero.
         # self.last_capture_time = 0
 
-    def get_frame(self):
+    def get_frame(self, depth = True):
         """
         Capture and return a color frame as a NumPy array if the capture interval has elapsed.
-
+        Args:
+            depth (bool): Whether to add depth component to output frame.
         Returns:
-            frame_array (numpy.ndarray): The captured color frame as a NumPy array.
+            frame_array (numpy.ndarray): The captured color frame + depth frame if depth is True, otherwise color frame as a NumPy array.
                                          Returns None if the capture interval has not passed or if no frame is captured.
         """
         # # Get the current time.
@@ -60,18 +62,28 @@ class RealSenseCamera:
 
         # Extract the color frame from the frameset.
         color_frame = frames.get_color_frame()
-        if not color_frame:
+        depth_frame = frames.get_depth_frame()
+        if not color_frame or not depth_frame:
             # If the color frame is unavailable, return None.
             return None
 
         # Convert the color frame data to a NumPy array.
-        frame_array = np.asanyarray(color_frame.get_data())
+        rgb_image = np.asanyarray(color_frame.get_data())
+        
 
         # # Update the last capture time to the current time.
         # self.last_capture_time = current_time
 
+        # convert RGB to BGR
+        rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2RGB)
+
+        if depth:
+            depth_image = np.asanyarray(depth_frame.get_data())[..., np.newaxis]
+            # image = np.concat([rgb_image, depth_image[..., np.newaxis]], axis=-1)
+            return rgb_image, depth_image
+
         # Return the captured frame as a NumPy array.
-        return frame_array
+        return rgb_image
 
     def release(self):
         """
@@ -80,3 +92,24 @@ class RealSenseCamera:
         Call this method when you no longer need to capture frames.
         """
         self.pipeline.stop()
+
+
+class WebCamera:
+    def __init__(self, camera_id):
+        self.camera = cv2.VideoCapture(camera_id)
+        if not self.camera.isOpened():
+            raise RuntimeError('Cannot read from the wrist camera')
+
+    def get_frame(self):
+        ret, image = self.camera.read()
+        if not ret:
+            raise RuntimeError('Cannot read from the wrist camera')
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        return image
+    
+    def release(self):
+        """
+        Call this method when you no longer need to capture frames.
+        """
+        self.camera.release()
+

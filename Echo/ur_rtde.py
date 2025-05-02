@@ -99,12 +99,30 @@ class UR3Teleop:
         """
         Moves the robot to its stored base pose.
         """
-        self.move_to_pose(self.base_pose)
+        self.move_to_pose(self.base_pose, 0)
 
-    def get_current_pose(self):
+    def get_current_tcp_pose(self):
+        """
+        Retrieves the tcp position of the robot.
+
+        :return: A list of 6 values (x, y, z, rx, ry, rz).
+        """
+        return np.array(self.rtde_r.getActualTCPPose())
+    
+    def get_current_joint_angles(self):
         """
         Retrieves the current joint positions of the robot.
 
         :return: A list of 6 values (joint angles in radians).
         """
-        return self.rtde_r.getActualQ()
+        return np.array(self.rtde_r.getActualQ())
+    
+    def get_current_gripper_pose(self):
+        """
+        Retrieves the current joint positions of the robot.
+
+        :return: value in range (0..255).
+        """
+        return np.array([self.gripper.get_current_position()])
+    
+
