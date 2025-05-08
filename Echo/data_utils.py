@@ -23,7 +23,7 @@ class DataCollector:
     └── ...
     """
 
-    def __init__(self, dataset_dir="dataset"):
+    def __init__(self, dataset_dir="dataset", binary_gripper_pose = False, gripper_config = None):
 
         """Initialize dataset collection session.
         
@@ -34,6 +34,10 @@ class DataCollector:
 
         self.dataset_dir = Path(dataset_dir)
         self.dataset_dir.mkdir(exist_ok=True)
+        self.binary_gripper_pose = binary_gripper_pose
+        self.gripper_config = gripper_config
+        if binary_gripper_pose and gripper_config is None:
+            raise TypeError("Gripper config can not be None when binary_gripper_pose=True")
         self.episode = None
         self.task = None
 
@@ -77,11 +81,19 @@ class DataCollector:
         for arm, new_position, gripper_position in zip([left_arm, right_arm], [left_arm_new_position, right_arm_new_position], 
                                                        [left_gripper_position, right_gripper_position]): 
             if arm is not None:
+                gripper_state =  (self._binarize_gripper_pose(arm.get_current_gripper_pose()) 
+                                  if self.binary_gripper_pose 
+                                  else arm.get_current_gripper_pose()/255)
+                
                 step['state'] = np.concat([step['state'],arm.get_current_joint_angles(), arm.get_current_tcp_pose(), 
-                                           arm.get_current_gripper_pose()/255, force/4095]).astype(np.float32)
+                                           gripper_state, force/4095]).astype(np.float32)
+                
+                gripper_action = (self._binarize_gripper_action(gripper_position.item()) 
+                                  if self.binary_gripper_pose 
+                                  else (np.array([gripper_position.item()]) - arm.get_current_gripper_pose())/255)
                 
                 step['action'] = np.concat([step['action'], np.array(new_position.tolist()) - arm.get_current_joint_angles(), 
-                                            (np.array([gripper_position.item()]) - arm.get_current_gripper_pose())/255]).astype(np.float32)
+                                            gripper_action]).astype(np.float32)
     
         step['image_main'], step['image_depth'] = main_camera.get_frame()
 
@@ -122,4 +134,13 @@ class DataCollector:
         """
 
         self.task = task
+    
+    def _binarize_gripper_pose(self, gripper_pose):
+
+        return np.array(gripper_pose > (self.gripper_config["gripper_closed_pose"] + self.gripper_config["gripper_opened_pose"])/2)
+    
+    def _binarize_gripper_action(self, gripper_action):
+
+        return np.array([gripper_action > self.gripper_config["gripper_pose_threshold"]])
+
 

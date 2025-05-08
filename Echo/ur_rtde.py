@@ -19,6 +19,8 @@ class UR3Teleop:
         gripper_velocity=255,
         gripper_force=200,
         use_gripper=True,  # New parameter: whether a gripper is present
+        binary_gripper_pose = False, 
+        gripper_config = None,
     ):
         """
         Initializes the connection to the robot using the given IP address and stores the base pose.
@@ -34,6 +36,8 @@ class UR3Teleop:
         :param gripper_velocity: Gripper movement speed.
         :param gripper_force: Gripper force.
         :param use_gripper: Flag to indicate if a gripper is available.
+        :param binary_gripper_pose: Flag to indicate if use gripper in binary or continious mode.
+        :param gripper_config: gripper configuration for binary mode:
         """
         self.ip = ip
         self.base_pose = (
@@ -68,6 +72,12 @@ class UR3Teleop:
         else:
             self.gripper = None
 
+        # if binary_gripper_pose used, need to provide gripper_config
+        self.binary_gripper_pose = binary_gripper_pose
+        self.gripper_config = gripper_config
+        if binary_gripper_pose and gripper_config is None:
+            raise TypeError("Gripper config can not be None when binary_gripper_pose=True")
+
     def move_to_pose(self, joints_positions, gripper_position=None):
         """
         Moves the robot to the specified joints_positions using the servoJ command.
@@ -91,9 +101,18 @@ class UR3Teleop:
 
         # If a gripper is present and a target position is provided, move the gripper
         if self.use_gripper and gripper_position is not None:
-            self.gripper.move(
+            if self.binary_gripper_pose:
+                gripper_binary_position = (self.gripper_config["gripper_opened_pose"] 
+                                        if gripper_position < self.gripper_config["gripper_pose_threshold"] 
+                                        else self.gripper_config["gripper_closed_pose"])
+                self.gripper.move(
+                    gripper_binary_position, self.gripper_velocity, self.gripper_force
+                )
+            else:
+                self.gripper.move(
                 gripper_position, self.gripper_velocity, self.gripper_force
             )
+
 
     def move_to_base_pose(self):
         """
