@@ -40,7 +40,7 @@ class RealSenseCamera:
         # # Initialize the time of the last captured frame to zero.
         # self.last_capture_time = 0
 
-    def get_frame(self, depth = True):
+    def get_frame(self, depth = False):
         """
         Capture and return a color frame as a NumPy array if the capture interval has elapsed.
         Args:

@@ -95,7 +95,7 @@ class DataCollector:
                 step['action'] = np.concat([step['action'], np.array(new_position.tolist()) - arm.get_current_joint_angles(), 
                                             gripper_action]).astype(np.float32)
     
-        step['image_main'], step['image_depth'] = main_camera.get_frame()
+        step['image_main'], step['image_depth'] = main_camera.get_frame(depth=True)
 
         if wrist_camera is not None:
             step['image_wrist'] = wrist_camera.get_frame()
